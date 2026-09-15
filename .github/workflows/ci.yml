@@ -1,0 +1,189 @@
+# TaskFlow CI Pipeline
+# Runs on every push/PR to main and develop branches.
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskflow_test?schema=public
+  JWT_SECRET: test-secret-key-for-ci-do-not-use-in-production-64chars
+  NODE_ENV: test
+
+jobs:
+  # ─── Lint ───────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install server deps
+        run: cd server && npm ci
+      - name: Install client deps
+        run: cd client && npm ci
+      - name: Lint server
+        run: cd server && npm run lint
+      - name: Lint client
+        run: cd client && npm run lint
+
+  # ─── Unit Tests ──────────────────────────────────────────────
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: taskflow_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install server deps
+        run: cd server && npm ci
+      - name: Generate Prisma client
+        run: cd server && npx prisma generate
+      - name: Run migrations
+        run: cd server && npx prisma migrate deploy
+      - name: Run unit tests
+        run: cd server && npm run test:unit
+
+  # ─── Integration Tests ───────────────────────────────────────
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: taskflow_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install server deps
+        run: cd server && npm ci
+      - name: Generate Prisma client
+        run: cd server && npx prisma generate
+      - name: Run migrations
+        run: cd server && npx prisma migrate deploy
+      - name: Seed test data
+        run: cd server && npm run seed
+      - name: Run integration tests
+        run: cd server && npm run test:integration
+
+  # ─── Client Build ───────────────────────────────────────────
+  build-client:
+    name: Build Client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install client deps
+        run: cd client && npm ci
+      - name: Build client
+        run: cd client && npm run build
+
+  # ─── Server Build ───────────────────────────────────────────
+  build-server:
+    name: Build Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install server deps
+        run: cd server && npm ci
+      - name: Generate Prisma client
+        run: cd server && npx prisma generate
+
+  # ─── E2E Tests (optional, slow) ──────────────────────────────
+  # e2e:
+  #   name: E2E Tests
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: postgres:16-alpine
+  #       env:
+  #         POSTGRES_USER: postgres
+  #         POSTGRES_PASSWORD: postgres
+  #         POSTGRES_DB: taskflow_test
+  #       ports: ["5432:5432"]
+  #       options: >-
+  #         --health-cmd="pg_isready -U postgres"
+  #         --health-interval=5s
+  #         --health-timeout=5s
+  #         --health-retries=10
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - name: Install all deps
+  #       run: |
+  #         cd server && npm ci
+  #         cd ../client && npm ci
+  #     - name: Generate Prisma & migrate
+  #       run: |
+  #         cd server && npx prisma generate && npx prisma migrate deploy
+  #     - name: Build client
+  #       run: cd client && npm run build
+  #     - name: Start server
+  #       run: |
+  #         cd server && npm run start &
+  #         sleep 5
+  #     - name: Run e2e tests
+  #       run: cd client && npm run test:e2e
+
+  # ─── Summary ─────────────────────────────────────────────────
+  success:
+    name: All Checks Passed
+    needs: [lint, test-unit, test-integration, build-client, build-server]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.test-unit.result }}" != "success" ] || \
+             [ "${{ needs.test-integration.result }}" != "success" ] || \
+             [ "${{ needs.build-client.result }}" != "success" ] || \
+             [ "${{ needs.build-server.result }}" != "success" ]; then
+            echo "❌ Some checks failed"
+            exit 1
+          fi
+          echo "✅ All checks passed"

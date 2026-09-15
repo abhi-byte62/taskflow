@@ -1,0 +1,40 @@
+# TaskFlow local development environment
+# Run `docker compose up -d` to get PostgreSQL + Redis locally.
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: taskflow_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: taskflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - taskflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskflow_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - taskflow_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  taskflow_pgdata:
+  taskflow_redisdata:

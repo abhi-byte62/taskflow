@@ -1,0 +1,296 @@
+// Prisma schema for TaskFlow — collaborative task management
+// Design decisions + index rationale documented in docs/DATABASE.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// User
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String? // null for Google OAuth users
+  googleId  String?  @unique
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  confirmed Boolean  @default(false)
+
+  workspaces        Workspace[]      @relation("WorkspaceOwner")
+  ownedBoards       Board[]          @relation("BoardOwner")
+  createdTasks      Task[]           @relation("TaskCreator")
+  memberships       WorkspaceMember[]
+  boardMemberships  BoardMember[]
+  taskAssignments   TaskAssignment[]
+  comments          Comment[]
+  activities        ActivityLog[]
+  notifications     Notification[]
+  idempotency       IdempotencyKey[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Workspace — top-level container for a team/organization
+// ─────────────────────────────────────────────────────────────
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User     @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members WorkspaceMember[]
+  boards  Board[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  role        Role     @default(MEMBER) // OWNER | ADMIN | MEMBER | VIEWER
+  joinedAt    DateTime @default(now())
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Board — Kanban board inside a workspace
+// ─────────────────────────────────────────────────────────────
+
+model Board {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  icon        String? // emoji
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ownerId     String
+  owner       User     @relation("BoardOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  columns    Column[]
+  members    BoardMember[]
+  labels     Label[]
+  activities ActivityLog[]
+  tasks      Task[]            @relation("BoardTasks")
+
+  @@index([workspaceId])
+}
+
+model BoardMember {
+  id      String @id @default(cuid())
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  role    Role   @default(MEMBER)
+
+  @@unique([boardId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Column — a lane on the board (To Do / In Progress / Done)
+// ─────────────────────────────────────────────────────────────
+
+model Column {
+  id        String   @id @default(cuid())
+  name      String
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
+
+  @@index([boardId, position])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Task
+//
+// `version` enables optimistic concurrency control (OCC):
+//   UPDATE ... SET title=?, version=version+1 WHERE id=? AND version=?
+//   0 rows updated → 409 CONFLICT → client refetches. See docs/CONCURRENCY.md
+// ─────────────────────────────────────────────────────────────
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      Status    @default(TODO) // TODO | IN_PROGRESS | DONE
+  priority    Priority  @default(MEDIUM) // LOW | MEDIUM | HIGH | URGENT
+  dueDate     DateTime?
+  position    Float     @default(0) // gap-based ordering, see services/positionService.js
+  version     Int       @default(1) // optimistic concurrency
+  columnId    String?
+  column      Column?   @relation(fields: [columnId], references: [id], onDelete: SetNull)
+  boardId     String
+  board       Board     @relation("BoardTasks", fields: [boardId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User      @relation("TaskCreator", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  assignees  TaskAssignment[]
+  labels     TaskLabel[]
+  comments   Comment[]
+  activities ActivityLog[]
+
+  // Hot query paths: board load, column ordering, due-date reminders
+  @@index([boardId])
+  @@index([columnId, position])
+  @@index([dueDate])
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  assignedAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Labels
+// ─────────────────────────────────────────────────────────────
+
+model Label {
+  id      String @id @default(cuid())
+  name    String
+  color   String @default("#6366f1")
+  boardId String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  tasks TaskLabel[]
+
+  @@unique([name, boardId])
+}
+
+model TaskLabel {
+  id      String @id @default(cuid())
+  taskId  String
+  task    Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  labelId String
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, labelId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Comments & Activity (audit trail)
+// ─────────────────────────────────────────────────────────────
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+}
+
+// Audit trail: WHO did WHAT, WHEN, WHERE.
+// Supports "who deleted this task?" — see docs/SECURITY.md
+model ActivityLog {
+  id         String   @id @default(cuid())
+  boardId    String
+  board      Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  taskId     String?
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String // task.created | task.updated | task.moved | task.deleted | comment.created | ...
+  entityType String // task | column | label | comment
+  entityId   String?
+  detail     String? // human-readable summary, e.g. "moved column 'todo' → 'done'"
+  createdAt  DateTime @default(now())
+
+  @@index([boardId, createdAt])
+  @@index([taskId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // mention | assign | comment | due_date
+  message   String
+  boardId   String?
+  taskId    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Idempotency — duplicate-safe writes (see middleware/idempotency.js)
+// ─────────────────────────────────────────────────────────────
+
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  key          String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responseJson Json
+  createdAt    DateTime @default(now())
+
+  @@unique([key, userId])
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum Status {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
