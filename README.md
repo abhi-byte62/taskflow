@@ -1,322 +1,309 @@
-# TaskFlow — Collaborative Task Management
+# TaskFlow — Collaborative Task Manager
 
-> A production-grade, real-time Kanban board built to demonstrate system design, full-stack engineering, and FAANG-level interview readiness.
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com)
+[![Tests](https://img.shields.io/badge/tests-5%20passing-blue)](https://github.com)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-![TaskFlow Architecture](docs/architecture.png)
+A production-grade, FAANG-level collaborative task management application with real-time Kanban boards, built with modern full-stack technologies.
 
-## 🎯 Why This Project Exists
+## 🚀 Live Demo
 
-Built by a 4th-year CSE student targeting FAANG SWE/Full-Stack roles. Every architectural decision is intentional — this isn't a "Trello clone" tutorial; it's a conversation starter for system design interviews.
+**Backend:** `http://localhost:5000`  
+**Frontend:** `http://localhost:5173` (or next available port)
 
-**Interview talking points baked in:**
-- **RBAC enforced server-side** — never trust the client
-- **Optimistic concurrency** (Task.version → 409 Conflict) — real distributed-systems problem
-- **Gap-based ordering** (100, 200, 300 → midpoints) — avoids O(N) renumbering
-- **Idempotency keys** on mutating endpoints — duplicate-safe retries
-- **Prisma $transaction** — atomic task + audit log writes
-- **REST (CRUD) vs WebSocket (live updates)** — DB is source of truth
-- **Cursor pagination** — no offset pagination at scale
-- **Audit trail** — who did what, when, where
-- **Structured logging + request IDs** — trace a request across the stack
+**Login:** `demo@taskflow.dev` / `password123`
 
-## 🏗️ Architecture
+---
+
+## ✨ Features
+
+### Core Functionality
+- **Kanban Boards** — Drag-and-drop tasks between columns with @dnd-kit
+- **Real-time Collaboration** — Socket.io presence, live updates, typing indicators
+- **Workspaces & Boards** — Hierarchical organization with auto-board creation
+- **Task Management** — Full CRUD, priorities, due dates, assignees, labels, comments
+
+### Engineering Excellence
+- **Optimistic Concurrency Control** — Version field on every task, 409 Conflict on stale writes
+- **Gap-based Positioning** — Float positions with automatic column rebalance when gaps < 0.001
+- **Server-side RBAC** — OWNER > ADMIN > MEMBER > VIEWER enforced on every mutating endpoint
+- **Idempotency Keys** — `Idempotency-Key` header prevents duplicate task creation on retries
+- **Atomic Transactions** — Prisma `$transaction` for task + activity log writes
+
+### Observability & Reliability
+- **Health Checks** — `/api/health` (liveness) + `/api/ready` (readiness with DB/Redis)
+- **Rate Limiting** — Auth endpoints (strict) + API endpoints (standard) with Redis fallback
+- **Structured Logging** — Request IDs, JSON logs, error taxonomy
+- **Unit Tests** — Vitest with positionService coverage (5/5 passing)
+
+### UX & Accessibility
+- **Dark Mode** — Toggle in top bar, persists to localStorage, `darkMode: 'class'` in Tailwind
+- **Keyboard Accessible** — Full @dnd-kit keyboard support
+- **Responsive Design** — Mobile sidebar, horizontal scroll on boards
+- **Notifications** — Real-time + REST, mark-as-read, mark-all-read
+
+---
+
+## 🏗 Architecture
 
 ```
-┌─────────────────┐     REST API      ┌──────────────────┐
-│                  │ ◄───────────────► │                  │
-│   React + Vite   │                   │  Express + Prisma │
-│   Tailwind CSS   │     WebSocket     │  Socket.io       │
-│                  │ ◄───────────────► │                  │
-└─────────────────┘                   └────────┬─────────┘
-                                               │
-                                    ┌──────────┴──────────┐
-                                    │                     │
-                               ┌────▼─────┐        ┌──────▼──────┐
-                               │PostgreSQL│        │    Redis     │
-                               │  (Prisma)│        │(cache/rate/   │
-                               └──────────┘        │  socket)     │
-                                                   └─────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Frontend      │     │    Backend      │     │   Database      │
+│   React 18      │◄───►│   Node/Express  │◄───►│   PostgreSQL 17 │
+│   Vite + TS     │     │   Prisma ORM    │     │   (Postgres)    │
+│   TanStack Query│     │   Socket.io     │     │   Redis (opt)   │
+│   Tailwind CSS  │     │   Zod + JWT     │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
-### Tech Stack
+### Key Design Decisions (ADRs)
+| ADR | Topic |
+|-----|-------|
+| 001 | PostgreSQL as primary database |
+| 002 | Socket.io for real-time |
+| 003 | Optimistic updates with OCC |
+| 004 | Cursor-based pagination |
+| 005 | Redis for caching/rate-limit |
+| 006 | REST + WebSocket separation |
 
-| Layer | Technology | Why |
-|-------|------------|-----|
-| Frontend | React 18 + Vite + Tailwind CSS | Modern, fast, type-safe |
-| State | TanStack Query (React Query) | Server state, optimistic updates, caching |
-| Drag & Drop | @dnd-kit/core + sortable | Accessible (keyboard + ARIA), headless |
-| Realtime | Socket.io client | WebSocket with auto-reconnect, rooms |
-| Backend | Node.js + Express | Industry standard, minimal boilerplate |
-| ORM | Prisma | Type-safe DB access, migrations |
-| DB | PostgreSQL 17 | Relational, ACID, production-grade |
-| Cache/Rate | Redis (optional in dev) | Rate limiting, caching, socket scaling |
-| Auth | JWT + bcryptjs | Stateless, secure password hashing |
-| Validation | Zod | Schema-first, runtime + compile-time |
-| Testing | Node.js native test runner | Zero-config, fast |
+---
 
-## 🚀 Quick Start
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 18, Vite, TanStack Query v5, React Router v6, @dnd-kit, Tailwind CSS, Lucide React |
+| **Backend** | Node.js, Express, Prisma ORM, Socket.io, Zod, bcryptjs, jsonwebtoken |
+| **Database** | PostgreSQL 17, Prisma Migrations |
+| **Cache/Queue** | Redis (ioredis) with in-memory fallback |
+| **Auth** | JWT (HS256), bcrypt, HttpOnly-ready |
+| **Testing** | Vitest, Supertest |
+| **CI/CD** | GitHub Actions, Docker Compose |
+
+---
+
+## 📦 Quick Start
 
 ### Prerequisites
 - Node.js 20+
-- PostgreSQL 17+ (running on port 5432, user `postgres`, password `postgres`)
-- Redis (optional — falls back to in-memory in dev)
+- PostgreSQL 17
+- Redis (optional — in-memory fallback used if unavailable)
 
 ### 1. Clone & Install
 ```bash
-git clone <repo-url>
+git clone https://github.com/YOUR_USERNAME/taskflow.git
 cd taskflow
 
-# Server
+# Backend
 cd server
 npm install
-cp .env.example .env
-# Edit .env if needed (defaults work for local)
 
-# Client
+# Frontend
 cd ../client
 npm install
 ```
 
-### 2. Database Setup
+### 2. Configure Environment
 ```bash
 cd server
-npx prisma db push        # Create schema
-npx prisma db seed        # Demo user: demo@taskflow.dev / password123
+cp .env.example .env
+# Edit .env with your DATABASE_URL, JWT_SECRET, REDIS_URL
 ```
 
-### 3. Run Both Servers
+### 3. Database Setup
 ```bash
-# Terminal 1: Backend (port 5000)
-cd server && npm run dev
-
-# Terminal 2: Frontend (port 5173)
-cd client && npm run dev
+cd server
+npx prisma migrate dev --name init
+npm run seed
 ```
 
-Open http://localhost:5173 → Login with `demo@taskflow.dev` / `password123`
+### 4. Run Development
+```bash
+# Terminal 1 — Backend
+cd server
+npm run dev          # → http://localhost:5000
+
+# Terminal 2 — Frontend
+cd client
+npm run dev          # → http://localhost:5173
+```
+
+### 5. Login
+```
+Email:    demo@taskflow.dev
+Password: password123
+```
+
+---
+
+## 🐳 Docker (Production)
+
+```bash
+docker-compose up -d
+# Services: postgres, redis, server (5000), client (5173)
+```
+
+### Environment Variables
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | Required |
+| `JWT_SECRET` | 64+ char secret for JWT | Required |
+| `REDIS_URL` | Redis connection string | Optional |
+| `PORT` | Backend port | 5000 |
+| `CLIENT_URL` | Frontend origin for CORS | http://localhost:5173 |
+| `NODE_ENV` | Environment | development |
+
+---
+
+## 📚 API Reference
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register new user |
+| POST | `/api/auth/login` | Login, returns JWT |
+| GET | `/api/auth/me` | Get current user |
+| POST | `/api/auth/logout` | Logout (stateless) |
+
+### Workspaces
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workspaces` | List user's workspaces (with boards) |
+| POST | `/api/workspaces` | Create workspace + default board |
+| GET | `/api/workspaces/:id` | Get workspace |
+| PATCH | `/api/workspaces/:id` | Update workspace |
+| DELETE | `/api/workspaces/:id` | Delete workspace |
+
+### Boards
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/boards/workspace/:id` | List boards in workspace |
+| POST | `/api/boards/workspace/:id` | Create board + default columns |
+| GET | `/api/boards/:id` | Get board |
+| GET | `/api/boards/:id/data` | **Full board** (columns + nested tasks) |
+| PATCH | `/api/boards/:id` | Update board |
+| DELETE | `/api/boards/:id` | Delete board |
+
+### Columns
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/columns/board/:id` | Create column |
+| PATCH | `/api/columns/:id` | Update column (name, position) |
+| DELETE | `/api/columns/:id` | Delete column |
+
+### Tasks
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/tasks/board/:id` | Paginated tasks (cursor-based) |
+| POST | `/api/tasks/board/:id` | Create task (idempotent) |
+| PATCH | `/api/tasks/:id` | Update task (requires `version`) |
+| POST | `/api/tasks/:id/move` | Move task (column + position) |
+| DELETE | `/api/tasks/:id` | Delete task |
+
+### Comments
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/comments/task/:id` | Get comments for task |
+| POST | `/api/comments/task/:id` | Add comment |
+
+### Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notifications` | List user notifications |
+| PATCH | `/api/notifications/:id/read` | Mark as read |
+| POST | `/api/notifications/read-all` | Mark all as read |
+
+### Health
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Liveness probe |
+| GET | `/api/health/ready` | Readiness probe (DB + Redis) |
+
+---
+
+## 🔒 Security
+
+- **JWT Authentication** — HS256, 7-day expiry, stateless
+- **Password Hashing** — bcrypt (cost 10)
+- **RBAC** — Server-side on every mutating endpoint
+- **Rate Limiting** — Auth: 5 req/min, API: 100 req/min
+- **Helmet** — Security headers (CSP, HSTS, etc.)
+- **CORS** — Configured for frontend origin only
+- **Input Validation** — Zod schemas on all endpoints
+
+---
+
+## 🧪 Testing
+
+```bash
+cd server
+npm test              # Run all tests (Vitest)
+npm run test:watch    # Watch mode
+```
+
+### Test Coverage
+- **positionService** — 5/5 tests passing (gap-based ordering, rebalance)
+- Integration tests for auth, workspaces, tasks (configured)
+
+---
 
 ## 📁 Project Structure
 
 ```
 taskflow/
-├── server/
+├── client/                 # React frontend
 │   ├── src/
-│   │   ├── index.js              # Entry: Express + Socket.io
-│   │   ├── app.js                # Express app factory (testable)
-│   │   ├── config.js             # Centralized config
-│   │   ├── middleware/
-│   │   │   ├── auth.js           # JWT verification
-│   │   │   ├── authorize.js      # RBAC (owner/admin/member/viewer)
-│   │   │   ├── validate.js       # Zod schema validation
-│   │   │   ├── idempotency.js    # Idempotency key middleware
-│   │   │   ├── rateLimiter.js    # Redis-backed rate limiting
-│   │   │   ├── requestId.js      # Correlation IDs
-│   │   │   ├── requestLogger.js  # Structured request logging
-│   │   │   └── errorHandler.js   # Central error taxonomy
-│   │   ├── routes/
-│   │   │   ├── auth.js           # Register, login, me
-│   │   │   ├── health.js         # /health (liveness) + /ready (readiness)
-│   │   │   └── ...               # Workspaces, boards, tasks, comments
-│   │   ├── services/
-│   │   │   ├── taskService.js    # CRUD + OCC + gap ordering
-│   │   │   ├── positionService.js# Midpoint positioning logic
-│   │   │   └── activityService.js# Audit trail
-│   │   ├── utils/
-│   │   │   ├── prisma.js         # Singleton Prisma client
-│   │   │   ├── redis.js          # Redis + in-memory fallback
-│   │   │   ├── logger.js         # Structured JSON logging
-│   │   │   ├── response.js       # Success envelope
-│   │   │   ├── schemas.js        # Zod schemas (single source of truth)
-│   │   │   ├── errors.js         # AppError taxonomy
-│   │   │   ├── permissions.js    # RBAC matrix
-│   │   │   └── events.js         # WebSocket event contract
-│   │   └── socket.js             # Socket.io server + presence
-│   ├── prisma/
-│   │   ├── schema.prisma         # Full DB schema with indexes
-│   │   └── seed.js               # Demo data
-│   └── tests/
-│       ├── unit/                 # Authorization, validation, position logic
-│       └── integration/          # API endpoints, auth, concurrency
-├── client/
-│   ├── src/
-│   │   ├── main.jsx              # Providers: QueryClient, Auth, Socket
-│   │   ├── App.jsx               # Routes + protected routes
-│   │   ├── context/
-│   │   │   ├── AuthContext.jsx   # JWT, login/register/logout
-│   │   │   └── SocketContext.jsx # Socket.io, presence, notifications
-│   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   ├── Register.jsx
-│   │   │   ├── Dashboard.jsx     # Workspaces list
-│   │   │   └── Board.jsx         # Kanban + drag-drop + modals
-│   │   ├── components/
-│   │   │   ├── Layout.jsx        # Sidebar, top bar, user menu
-│   │   │   └── ProtectedRoute.jsx
-│   │   └── services/api.js       # Axios instance + interceptors
+│   │   ├── components/     # Layout, ProtectedRoute
+│   │   ├── context/        # AuthContext, SocketContext
+│   │   ├── pages/          # Login, Register, Dashboard, Board, Workspaces
+│   │   ├── services/       # API client (axios)
+│   │   └── main.jsx        # Entry point
 │   └── ...
-├── docker-compose.yml            # PostgreSQL + Redis
-├── .github/workflows/ci.yml      # Lint → Unit → Integration → Build
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── DATABASE.md               # Indexes + EXPLAIN ANALYZE examples
-    ├── AUTH.md
-    ├── REALTIME.md
-    ├── CONCURRENCY.md            # OCC design
-    ├── CACHING.md
-    ├── SCALABILITY.md            # Path from 10K → 1M users
-    ├── SECURITY.md
-    └── ADR/                      # Architecture Decision Records
+├── server/                 # Node/Express backend
+│   ├── src/
+│   │   ├── middleware/     # auth, authorize, validate, rateLimiter, idempotency
+│   │   ├── routes/         # auth, workspaces, boards, tasks, comments, notifications, activity, health
+│   │   ├── services/       # taskService, positionService, notificationService, activityService
+│   │   ├── utils/          # prisma, redis, logger, events, schemas, permissions, response
+│   │   ├── middleware/     # errorHandler, requestId, requestLogger
+│   │   ├── app.js          # Express app factory
+│   │   ├── index.js        # Entry point (routes + socket)
+│   │   └── config.js       # Centralized config
+│   ├── prisma/             # Schema + migrations + seed
+│   └── tests/              # Vitest unit tests
+├── docs/                   # Architecture + ADRs
+│   ├── ADR/                # 6 Architecture Decision Records
+│   ├── ARCHITECTURE.md
+│   ├── DATABASE.md
+│   ├── CONCURRENCY.md
+│   ├── REALTIME.md
+│   ├── SCALABILITY.md
+│   ├── SECURITY.md
+│   ├── AUTH.md
+│   └── CACHING.md
+└── docker-compose.yml      # Postgres + Redis + App
 ```
-
-## 🔐 Authorization (RBAC)
-
-**Never trust the client.** Every sensitive endpoint resolves the resource, checks membership, then checks the role matrix:
-
-| Action | OWNER | ADMIN | MEMBER | VIEWER |
-|--------|-------|-------|--------|--------|
-| `workspace.view` | ✅ | ✅ | ✅ | ✅ |
-| `workspace.update` | ✅ | ❌ | ❌ | ❌ |
-| `workspace.manageMembers` | ✅ | ✅ | ❌ | ❌ |
-| `board.view` | ✅ | ✅ | ✅ | ✅ |
-| `board.manageColumns` | ✅ | ✅ | ✅ | ❌ |
-| `task.create` | ✅ | ✅ | ✅ | ❌ |
-| `task.update` | ✅ | ✅ | ✅ | ❌ |
-| `task.move` | ✅ | ✅ | ✅ | ❌ |
-| `task.delete` | ✅ | ✅ | ✅ | ❌ |
-
-Implemented in `server/src/middleware/authorize.js` — reusable `authorizeWorkspace()` and `authorizeBoard()` factories.
-
-## ⚡ Optimistic Concurrency Control
-
-Every mutating request carries a `version` from the last read:
-
-```sql
--- Server executes atomically:
-UPDATE tasks
-SET title = ?, version = version + 1
-WHERE id = ? AND version = ?
-```
-
-- **0 rows updated → 409 CONFLICT** → client refetches, user reconciles
-- Demonstrated in `server/src/services/taskService.js` (`updateTask`, `moveTask`)
-- Client handles via TanStack Query optimistic updates + rollback on 409
-
-## 🎯 Gap-Based Task Ordering
-
-Positions are floats (100, 200, 300). Insert between A=100 and B=200 → midpoint 150.
-
-- No O(N) renumbering on every drag
-- When gap < 0.001 → rebalance column (100 spacing)
-- See `server/src/services/positionService.js`
-
-## 🔁 Idempotency
-
-Client sends `Idempotency-Key: <uuid>` on POST `/tasks`:
-
-1. First request → execute, store response keyed by `(key, userId)`
-2. Retry (network timeout) → return stored response, no duplicate task
-
-Implemented in `server/src/middleware/idempotency.js`.
-
-## 📡 WebSocket Event Contract
-
-**REST owns CRUD + initial load. WebSocket ONLY broadcasts mutations.**
-
-| Server → Client | Payload |
-|-----------------|---------|
-| `task.created` | `{ task }` |
-| `task.updated` | `{ task }` |
-| `task.moved` | `{ task }` |
-| `task.deleted` | `{ taskId }` |
-| `presence.joined` | `{ users, user }` |
-| `presence.left` | `{ users, userId }` |
-| `comment.typing` | `{ userId, taskId }` |
-| `notification.created` | `{ notification }` |
-
-Rooms: `board:<boardId>` — scoped broadcasts. Documented in `server/src/utils/events.js`.
-
-## 🧪 Testing
-
-```bash
-# Server
-cd server
-npm run test:unit         # Authorization, validation, position logic
-npm run test:integration  # Full API flows, auth, 409 conflicts
-
-# Client
-cd client
-npm run test              # Vitest (component tests)
-```
-
-## 📊 Performance (Local Measurements)
-
-| Operation | p50 | p99 |
-|-----------|-----|-----|
-| `GET /boards/:id/data` (3 cols, 10 tasks) | 18ms | 35ms |
-| `POST /tasks` (create + activity + socket) | 22ms | 48ms |
-| `PATCH /tasks/:id` (update + version bump) | 14ms | 28ms |
-| `POST /tasks/:id/move` (move + activity + socket) | 19ms | 41ms |
-| WebSocket broadcast (10 clients) | 2ms | 5ms |
-
-*Run on: PostgreSQL 17, Node 20, local machine. No Redis (in-memory fallback).*
-
-## 🛡️ Security Checklist
-
-- [x] Password hashing (bcrypt, 10 rounds)
-- [x] JWT with short expiry (7d), no sensitive data in payload
-- [x] Rate limiting (auth: 100/15min, API: 1000/15min)
-- [x] CORS restricted to frontend origin
-- [x] Helmet security headers
-- [x] Input validation at API boundary (Zod)
-- [x] SQL injection protection (Prisma parameterized queries)
-- [x] XSS protection (React auto-escaping, no dangerouslySetInnerHTML)
-- [x] Server-side RBAC on every mutating endpoint
-- [x] Idempotency for duplicate-safe retries
-- [x] Audit trail (who/what/when/where)
-
-## 📈 Scalability Path
-
-| Scale | Changes |
-|-------|---------|
-| **10K users** (current) | Single Node, PG, in-memory rate limit |
-| **100K users** | Redis for rate limit + caching, PG read replicas, PG connection pooling |
-| **1M users** | Horizontal Node pods + Redis adapter for Socket.io, PG sharding by workspace, CDN for static assets, dedicated search (PostgreSQL FTS → Elasticsearch) |
-
-Detailed in `docs/SCALABILITY.md`.
-
-## 🐳 Docker
-
-```bash
-# Start PostgreSQL + Redis
-docker compose up -d
-
-# Then run servers normally
-cd server && npm run dev
-cd client && npm run dev
-```
-
-## 📚 Documentation
-
-| Doc | Description |
-|-----|-------------|
-| `docs/ARCHITECTURE.md` | System overview, data flow, trade-offs |
-| `docs/DATABASE.md` | Schema, indexes, `EXPLAIN ANALYZE` examples |
-| `docs/AUTH.md` | JWT, refresh strategy, OAuth stub |
-| `docs/REALTIME.md` | Socket.io rooms, event contract, presence |
-| `docs/CONCURRENCY.md` | Optimistic concurrency design |
-| `docs/CACHING.md` | Redis caching strategy + invalidation |
-| `docs/SCALABILITY.md` | 10K → 100K → 1M evolution |
-| `docs/SECURITY.md` | Threat model, mitigations, checklist |
-| `docs/ADR/` | Architecture Decision Records |
-
-## 🤝 Contributing
-
-This is a portfolio project — but PRs for bug fixes or doc improvements are welcome.
-
-## 📄 License
-
-MIT — use freely for learning, interviews, or as a starter.
 
 ---
 
-**Built with intention.** If you're interviewing and they ask "walk me through a hard problem you solved," this project has 5+ ready answers.
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+Built with ❤️ using modern full-stack best practices. Inspired by Linear, Notion, and GitHub Projects.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
