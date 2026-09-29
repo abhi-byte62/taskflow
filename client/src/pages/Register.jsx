@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle, Loader2, Kanban } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Register() {
@@ -34,7 +34,7 @@ export default function Register() {
 
     try {
       await register(name, email, password);
-      toast.success('Account created!');
+      toast.success('Account created successfully');
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error?.message || 'Registration failed');
@@ -45,32 +45,34 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-xl font-bold text-white">T</span>
+    <div className="min-h-screen flex items-center justify-center bg-[#0c0d12] px-4 py-12 text-zinc-100">
+      <div className="w-full max-w-sm">
+        {/* Brand Header */}
+        <div className="text-center mb-6">
+          <Link to="/dashboard" className="inline-flex items-center gap-2.5 mb-3 group">
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-100 flex items-center justify-center shadow-sm">
+              <Kanban className="w-4 h-4" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">TaskFlow</span>
+            <span className="text-xl font-bold text-white tracking-tight">TaskFlow</span>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Create account</h1>
-          <p className="mt-2 text-gray-600">Start managing your projects today</p>
+          <h1 className="text-xl font-semibold text-white">Create your account</h1>
+          <p className="mt-1 text-xs text-zinc-400">Get started with collaborative Kanban boards.</p>
         </div>
 
-        <div className="card p-6">
+        {/* Card */}
+        <div className="bg-[#13151c] rounded-xl border border-[#232634] p-6 shadow-xl space-y-5">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
+            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-center gap-2 text-rose-400 text-xs">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
-              <label htmlFor="name" className="label">Full name</label>
+              <label htmlFor="name" className="block text-xs font-medium text-zinc-400 mb-1">Full name</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   id="name"
                   name="name"
@@ -79,17 +81,17 @@ export default function Register() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="input pl-10"
-                  placeholder="John Doe"
+                  className="input pl-9 text-xs"
+                  placeholder="Alex Rivera"
                   disabled={loading}
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="email" className="label">Email address</label>
+              <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-1">Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   id="email"
                   name="email"
@@ -98,17 +100,17 @@ export default function Register() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input pl-10"
-                  placeholder="you@example.com"
+                  className="input pl-9 text-xs"
+                  placeholder="alex@example.com"
                   disabled={loading}
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="label">Password</label>
+              <label htmlFor="password" className="block text-xs font-medium text-zinc-400 mb-1">Password (8+ characters)</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   id="password"
                   name="password"
@@ -117,7 +119,7 @@ export default function Register() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input pl-10"
+                  className="input pl-9 text-xs"
                   placeholder="••••••••"
                   disabled={loading}
                   minLength={8}
@@ -126,9 +128,9 @@ export default function Register() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="label">Confirm password</label>
+              <label htmlFor="confirmPassword" className="block text-xs font-medium text-zinc-400 mb-1">Confirm password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -137,7 +139,7 @@ export default function Register() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="input pl-10"
+                  className="input pl-9 text-xs"
                   placeholder="••••••••"
                   disabled={loading}
                 />
@@ -147,11 +149,11 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-3"
+              className="btn-primary w-full h-9 text-xs mt-1"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   Creating account...
                 </span>
               ) : (
@@ -160,9 +162,9 @@ export default function Register() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
+          <p className="text-center text-xs text-zinc-400">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 hover:text-primary-500 font-medium">
+            <Link to="/login" className="text-zinc-200 hover:text-white underline font-medium">
               Sign in
             </Link>
           </p>

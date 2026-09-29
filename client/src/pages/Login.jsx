@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader2, Kanban } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
@@ -19,43 +19,45 @@ export default function Login() {
 
     try {
       await login(email, password);
-      toast.success('Welcome back!');
+      toast.success('Signed in successfully');
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error?.message || 'Login failed');
-      toast.error(err.response?.data?.error?.message || 'Login failed');
+      setError(err.response?.data?.error?.message || 'Authentication failed');
+      toast.error(err.response?.data?.error?.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/dashboard" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-xl font-bold text-white">T</span>
+    <div className="min-h-screen flex items-center justify-center bg-[#0c0d12] px-4 py-12 text-zinc-100">
+      <div className="w-full max-w-sm">
+        {/* Brand Header */}
+        <div className="text-center mb-6">
+          <Link to="/dashboard" className="inline-flex items-center gap-2.5 mb-3 group">
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-100 flex items-center justify-center shadow-sm">
+              <Kanban className="w-4 h-4" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">TaskFlow</span>
+            <span className="text-xl font-bold text-white tracking-tight">TaskFlow</span>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Sign in</h1>
-          <p className="mt-2 text-gray-600">Enter your credentials to access your account</p>
+          <h1 className="text-xl font-semibold text-white">Sign in to your account</h1>
+          <p className="mt-1 text-xs text-zinc-400">Welcome back. Enter your credentials to continue.</p>
         </div>
 
-        <div className="card p-6">
+        {/* Card */}
+        <div className="bg-[#13151c] rounded-xl border border-[#232634] p-6 shadow-xl space-y-5">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
+            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-center gap-2 text-rose-400 text-xs">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
-              <label htmlFor="email" className="label">Email address</label>
+              <label htmlFor="email" className="block text-xs font-medium text-zinc-400 mb-1">Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   id="email"
                   name="email"
@@ -64,17 +66,17 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input pl-10"
-                  placeholder="you@example.com"
+                  className="input pl-9 text-xs"
+                  placeholder="demo@taskflow.dev"
                   disabled={loading}
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="label">Password</label>
+              <label htmlFor="password" className="block text-xs font-medium text-zinc-400 mb-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input
                   id="password"
                   name="password"
@@ -83,7 +85,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="input pl-10"
+                  className="input pl-9 text-xs"
                   placeholder="••••••••"
                   disabled={loading}
                 />
@@ -93,11 +95,11 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="btn-primary w-full py-3"
+              className="btn-primary w-full h-9 text-xs mt-1"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   Signing in...
                 </span>
               ) : (
@@ -106,16 +108,16 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
+          <p className="text-center text-xs text-zinc-400">
             Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 hover:text-primary-500 font-medium">
-              Sign up
+            <Link to="/register" className="text-zinc-200 hover:text-white underline font-medium">
+              Create account
             </Link>
           </p>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-center text-gray-500">
-              Demo: <code className="bg-gray-100 px-1.5 py-0.5 rounded">demo@taskflow.dev</code> / <code className="bg-gray-100 px-1.5 py-0.5 rounded">password123</code>
+          <div className="pt-3 border-t border-[#232634] text-center">
+            <p className="text-[11px] text-zinc-500">
+              Demo: <span className="text-zinc-300 font-mono">demo@taskflow.dev</span> / <span className="text-zinc-300 font-mono">password123</span>
             </p>
           </div>
         </div>

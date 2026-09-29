@@ -46,6 +46,14 @@ const columnSchema = z.object({
 // Partial version for updates (PATCH)
 const columnUpdateSchema = columnSchema.partial();
 
+// ── Labels ───────────────────────────────────────────────────
+const labelSchema = z.object({
+  name: z.string().trim().min(1, 'Label name is required').max(50),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid 6-char hex color (e.g. #6366f1)').optional(),
+});
+
+const labelUpdateSchema = labelSchema.partial();
+
 // ── Task ─────────────────────────────────────────────────────
 const priorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
 const statusEnum = z.enum(['TODO', 'IN_PROGRESS', 'DONE']);
@@ -68,6 +76,9 @@ const updateTaskSchema = z.object({
   priority: priorityEnum.optional(),
   status: statusEnum.optional(),
   dueDate: z.string().nullable().optional(),
+  columnId: z.string().optional(),
+  assigneeIds: z.array(z.string()).max(20).optional(),
+  labelIds: z.array(z.string()).max(20).optional(),
   version: z.number().int().positive('version is required for updates'),
 });
 
@@ -99,6 +110,9 @@ module.exports = {
   boardSchema,
   boardUpdateSchema,
   columnSchema,
+  columnUpdateSchema,
+  labelSchema,
+  labelUpdateSchema,
   createTaskSchema,
   updateTaskSchema,
   moveTaskSchema,

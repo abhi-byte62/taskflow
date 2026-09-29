@@ -105,7 +105,7 @@ async function createTask(boardId, createdById, input) {
 
 // ── Update (optimistic concurrency) ─────────────────────────
 async function updateTask(taskId, userId, input) {
-  const { version, ...data } = input;
+  const { version, assigneeIds, labelIds, ...data } = input;
 
   const task = await prisma.$transaction(async (tx) => {
     // Atomic: update + version bump in one WHERE clause.
@@ -119,6 +119,27 @@ async function updateTask(taskId, userId, input) {
     );
 
     const boardId = (await tx.task.findUnique({ where: { id: taskId } })).boardId;
+
+    // Update assignees if provided
+    if (assigneeIds !== undefined) {
+      await tx.taskAssignment.deleteMany({ where: { taskId } });
+      if (assigneeIds.length > 0) {
+        await tx.taskAssignment.createMany({
+          data: assigneeIds.map((uid) => ({ taskId, userId: uid })),
+        });
+      }
+    }
+
+    // Update labels if provided
+    if (labelIds !== undefined) {
+      await tx.taskLabel.deleteMany({ where: { taskId } });
+      if (labelIds.length > 0) {
+        await tx.taskLabel.createMany({
+          data: labelIds.map((lid) => ({ taskId, labelId: lid })),
+        });
+      }
+    }
+
     await activityLog.log(tx, {
       boardId,
       taskId,
@@ -126,7 +147,7 @@ async function updateTask(taskId, userId, input) {
       action: 'task.updated',
       entityType: 'task',
       entityId: taskId,
-      detail: `Updated ${Object.keys(data).join(', ')}`,
+      detail: `Updated ${Object.keys(data).concat(assigneeIds ? ['assignees'] : []).concat(labelIds ? ['labels'] : []).join(', ')}`,
     });
 
     // Notify assignees of update (excluding the actor)

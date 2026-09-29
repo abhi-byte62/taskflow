@@ -16,7 +16,7 @@ export default function Dashboard() {
     queryKey: ['workspaces'],
     queryFn: async () => {
       const { data } = await api.get('/workspaces');
-      return data.data.data;
+      return data.data?.data !== undefined ? data.data.data : (data.data || []);
     },
   });
 
@@ -28,7 +28,7 @@ export default function Dashboard() {
       setNewWorkspaceName('');
       setNewWorkspaceDescription('');
       toast.success('Workspace created');
-      const newWs = res.data?.data;
+      const newWs = res.data?.data?.data || res.data?.data;
       if (newWs?.boards?.[0]?.id) {
         navigate(`/board/${newWs.boards[0].id}`);
       }
@@ -57,17 +57,18 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-10 h-10 animate-spin text-primary-600" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+        <p className="text-xs text-zinc-400">Loading workspaces...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-12 bg-red-50 rounded-lg border border-red-200">
-        <p className="text-red-700 font-medium">Failed to load workspaces</p>
-        <p className="text-sm text-red-500 mt-1">{error.message}</p>
+      <div className="text-center py-10 bg-rose-500/10 rounded-xl border border-rose-500/20">
+        <p className="text-rose-400 font-medium text-sm">Failed to load workspaces</p>
+        <p className="text-xs text-zinc-400 mt-1">{error.message}</p>
       </div>
     );
   }
@@ -76,35 +77,39 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Manage your workspaces and collaborative boards</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Workspaces</h1>
+          <p className="text-xs text-zinc-400 mt-0.5">Manage your team boards, tasks, and sprints</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="btn-primary flex items-center gap-2"
+          className="btn-primary flex items-center gap-1.5 text-xs py-2 px-3.5"
         >
           <Plus className="w-4 h-4" />
           New Workspace
         </button>
       </div>
 
+      {/* Workspace Cards */}
       {workspaces.length === 0 ? (
-        <div className="card p-12 text-center">
-          <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No workspaces yet</h3>
-          <p className="text-gray-500 mb-6">Create your first workspace to start collaborating on tasks</p>
+        <div className="bg-[#13151c] rounded-xl border border-[#232634] p-10 text-center max-w-lg mx-auto">
+          <div className="w-12 h-12 rounded-xl bg-[#181b24] border border-[#232634] flex items-center justify-center text-zinc-400 mx-auto mb-3">
+            <Users className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-semibold text-white mb-1">No workspaces yet</h3>
+          <p className="text-xs text-zinc-400 mb-5">Create your first workspace to start organizing boards and tracking tasks.</p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn-primary inline-flex items-center gap-2"
+            className="btn-primary inline-flex items-center gap-1.5 text-xs py-2 px-4"
           >
             <Plus className="w-4 h-4" />
             Create Workspace
           </button>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {workspaces.map((workspace) => {
             const firstBoard = workspace.boards?.[0];
             return (
@@ -117,15 +122,15 @@ export default function Dashboard() {
                     navigate('/workspaces');
                   }
                 }}
-                className="card p-6 hover:shadow-md transition-all group cursor-pointer border border-gray-200 hover:border-primary-300 flex flex-col justify-between"
+                className="bg-[#13151c] hover:bg-[#181b24] rounded-xl p-5 transition-colors group cursor-pointer border border-[#232634] hover:border-[#383d50] flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-primary-50 text-primary-600 rounded-xl flex items-center justify-center group-hover:bg-primary-100 transition-colors">
-                      <LayoutDashboard className="w-6 h-6" />
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 bg-[#181b24] border border-[#232634] text-zinc-300 rounded-lg flex items-center justify-center group-hover:border-zinc-500 transition-colors">
+                      <LayoutDashboard className="w-5 h-5" />
                     </div>
                     <button
-                      className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 rounded-md text-zinc-500 hover:bg-rose-500/10 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (confirm(`Delete workspace "${workspace.name}"?`)) {
@@ -137,27 +142,25 @@ export default function Dashboard() {
                       <MoreVertical className="w-4 h-4" />
                     </button>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-primary-600 transition-colors">
+                  <h3 className="text-base font-semibold text-white mb-1 group-hover:text-zinc-100 transition-colors">
                     {workspace.name}
                   </h3>
-                  <p className="text-sm text-gray-500 mb-4 line-clamp-2">
-                    {workspace.description || 'No description provided'}
+                  <p className="text-xs text-zinc-400 mb-4 line-clamp-2">
+                    {workspace.description || 'No description provided.'}
                   </p>
 
                   {workspace.boards && workspace.boards.length > 0 && (
-                    <div className="space-y-1.5 mb-4">
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Boards</p>
+                    <div className="space-y-1.5 mb-3">
+                      <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                        Boards ({workspace.boards.length})
+                      </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {workspace.boards.map((board) => (
+                        {workspace.boards.map((b) => (
                           <span
-                            key={board.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/board/${board.id}`);
-                            }}
-                            className="px-2.5 py-1 text-xs font-medium bg-gray-100 hover:bg-primary-50 hover:text-primary-700 text-gray-700 rounded-md transition-colors inline-flex items-center gap-1"
+                            key={b.id}
+                            className="text-[11px] py-0.5 px-2 rounded-md bg-[#181b24] border border-[#232634] text-zinc-300"
                           >
-                            {board.name}
+                            {b.name}
                           </span>
                         ))}
                       </div>
@@ -165,12 +168,10 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-2">
-                  <span className="text-xs text-gray-500">
-                    {workspace.boards?.length || 0} board{workspace.boards?.length !== 1 ? 's' : ''}
-                  </span>
-                  <span className="text-sm font-medium text-primary-600 group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
-                    Open <ArrowRight className="w-4 h-4" />
+                <div className="pt-3 border-t border-[#232634] flex items-center justify-between text-xs text-zinc-500">
+                  <span>{workspace.boards?.length || 0} boards</span>
+                  <span className="text-zinc-300 group-hover:text-white group-hover:translate-x-0.5 transition-all flex items-center gap-1 font-medium">
+                    Open <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </div>
@@ -181,56 +182,49 @@ export default function Dashboard() {
 
       {/* Create Workspace Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Create Workspace</h2>
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-[#13151c] rounded-xl shadow-2xl w-full max-w-md border border-[#232634] p-5">
+            <h2 className="text-base font-semibold text-white mb-1">New Workspace</h2>
+            <p className="text-xs text-zinc-400 mb-4">Create a workspace for your team and boards.</p>
+            <form onSubmit={handleCreateSubmit} className="space-y-3.5">
               <div>
-                <label htmlFor="workspaceName" className="label">Workspace name</label>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Workspace Name</label>
                 <input
-                  id="workspaceName"
                   type="text"
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
                   className="input"
-                  placeholder="e.g., Engineering Team"
-                  autoFocus
+                  placeholder="e.g. Engineering, Marketing"
                   required
-                  maxLength={100}
+                  autoFocus
                 />
               </div>
+
               <div>
-                <label htmlFor="workspaceDesc" className="label">Description (optional)</label>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Description</label>
                 <textarea
-                  id="workspaceDesc"
                   value={newWorkspaceDescription}
                   onChange={(e) => setNewWorkspaceDescription(e.target.value)}
-                  className="input min-h-[80px]"
-                  placeholder="What is this workspace for?"
+                  className="input min-h-[80px] resize-none"
+                  placeholder="What is this workspace for?..."
                   maxLength={500}
                 />
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#232634]">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="btn-secondary"
+                  className="btn-secondary text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={createWorkspace.isPending || !newWorkspaceName.trim()}
-                  className="btn-primary"
+                  disabled={!newWorkspaceName.trim() || createWorkspace.isPending}
+                  className="btn-primary text-xs"
                 >
-                  {createWorkspace.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Creating...
-                    </span>
-                  ) : (
-                    'Create Workspace'
-                  )}
+                  {createWorkspace.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Create Workspace'}
                 </button>
               </div>
             </form>

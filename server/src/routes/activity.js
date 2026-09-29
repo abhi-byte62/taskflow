@@ -26,4 +26,16 @@ router.get('/board/:boardId', authenticate, authorizeBoard('board.view', (req) =
   } catch (err) { next(err); }
 });
 
+router.get('/task/:taskId', authenticate, async (req, res, next) => {
+  try {
+    const activities = await prisma.activityLog.findMany({
+      where: { taskId: req.params.taskId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { actor: { select: { id: true, name: true, avatarUrl: true } } },
+    });
+    success(res, { data: activities });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

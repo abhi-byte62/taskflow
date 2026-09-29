@@ -23,6 +23,8 @@ const {
   boardUpdateSchema,
   columnSchema,
   columnUpdateSchema,
+  labelSchema,
+  labelUpdateSchema,
   createTaskSchema,
   updateTaskSchema,
   moveTaskSchema,
@@ -159,13 +161,19 @@ boards.get('/:id/data', authenticate, authorizeBoard('board.view'), async (req, 
             tasks: {
               orderBy: { position: 'asc' },
               include: {
-                assignees: { select: { user: { select: { id: true, name: true, avatarUrl: true } } } },
+                assignees: { select: { user: { select: { id: true, name: true, avatarUrl: true, email: true } } } },
                 labels: { select: { label: true } },
               },
             },
           },
         },
         labels: true,
+        members: { include: { user: { select: { id: true, name: true, avatarUrl: true, email: true } } } },
+        workspace: {
+          include: {
+            members: { include: { user: { select: { id: true, name: true, avatarUrl: true, email: true } } } },
+          },
+        },
       },
     });
     success(res, { data: board });
@@ -330,10 +338,41 @@ comments.post('/task/:taskId', authenticate, authorizeBoard('task.comment', asyn
   } catch (err) { next(err); }
 });
 
+// ── Label routes ─────────────────────────────────────────────
+const labels = require('express').Router();
+
+labels.get('/board/:boardId', authenticate, authorizeBoard('board.view', (req) => req.params.boardId), async (req, res, next) => {
+  try {
+    const data = await prisma.label.findMany({ where: { boardId: req.params.boardId }, orderBy: { name: 'asc' } });
+    success(res, { data });
+  } catch (err) { next(err); }
+});
+
+labels.post('/board/:boardId', authenticate, authorizeBoard('label.manage', (req) => req.params.boardId), validate({ body: labelSchema }), async (req, res, next) => {
+  try {
+    const label = await prisma.label.create({
+      data: { name: req.body.name, color: req.body.color || '#6366f1', boardId: req.params.boardId },
+    });
+    success(res, { data: label }, 201);
+  } catch (err) { next(err); }
+});
+
+labels.delete('/:id', authenticate, authorizeBoard('label.manage', async (req) => {
+  const label = await prisma.label.findUnique({ where: { id: req.params.id }, select: { boardId: true } });
+  if (!label) throw errors.notFound('Label not found');
+  return label.boardId;
+}), async (req, res, next) => {
+  try {
+    await prisma.label.delete({ where: { id: req.params.id } });
+    success(res, { data: { deleted: true } });
+  } catch (err) { next(err); }
+});
+
 // ── Mount all business routes ────────────────────────────────
 app.use('/api/workspaces', workspaces);
 app.use('/api/boards', boards);
 app.use('/api/columns', columns);
+app.use('/api/labels', labels);
 app.use('/api/tasks', tasks);
 app.use('/api/comments', comments);
 app.use('/api/notifications', notificationRoutes);

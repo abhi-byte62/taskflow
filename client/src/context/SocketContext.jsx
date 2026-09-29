@@ -13,22 +13,37 @@ export function SocketProvider({ children }) {
   const currentBoardRef = useRef(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+      return;
+    }
 
     const token = localStorage.getItem('token');
-    const newSocket = io('http://localhost:5000', {
+    const socketUrl = import.meta.env.VITE_WS_URL || (typeof window !== 'undefined' ? window.location.origin.replace(/^http/, 'ws').replace(/:5173$/, ':5000') : 'http://localhost:5000');
+
+    const newSocket = io(socketUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
     });
 
     newSocket.on('presence.joined', ({ users, user: joinedUser }) => {
       setOnlineUsers(users);
-      setNotifications(prev => [{
-        id: `presence-${Date.now()}`,
-        type: 'info',
-        message: `${joinedUser.name} joined the board`,
-        read: false,
-      }, ...prev.slice(0, 19)]);
+      if (joinedUser) {
+        setNotifications((prev) => [
+          {
+            id: `presence-${Date.now()}`,
+            type: 'info',
+            message: `${joinedUser.name} joined the board`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev.slice(0, 19),
+        ]);
+      }
     });
 
     newSocket.on('presence.left', ({ users }) => {
@@ -36,85 +51,114 @@ export function SocketProvider({ children }) {
     });
 
     newSocket.on('task.created', ({ task }) => {
-      setNotifications(prev => [{
-        id: `task-created-${task.id}`,
-        type: 'success',
-        message: `New task: ${task.title}`,
-        read: false,
-      }, ...prev.slice(0, 19)]);
+      if (task) {
+        setNotifications((prev) => [
+          {
+            id: `task-created-${task.id}-${Date.now()}`,
+            type: 'success',
+            message: `New task created: ${task.title}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev.slice(0, 19),
+        ]);
+      }
     });
 
     newSocket.on('task.updated', ({ task }) => {
-      setNotifications(prev => [{
-        id: `task-updated-${task.id}`,
-        type: 'info',
-        message: `Task updated: ${task.title}`,
-        read: false,
-      }, ...prev.slice(0, 19)]);
+      if (task) {
+        setNotifications((prev) => [
+          {
+            id: `task-updated-${task.id}-${Date.now()}`,
+            type: 'info',
+            message: `Task updated: ${task.title}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev.slice(0, 19),
+        ]);
+      }
     });
 
     newSocket.on('task.moved', ({ task }) => {
-      setNotifications(prev => [{
-        id: `task-moved-${task.id}`,
-        type: 'info',
-        message: `Task moved: ${task.title}`,
-        read: false,
-      }, ...prev.slice(0, 19)]);
+      if (task) {
+        setNotifications((prev) => [
+          {
+            id: `task-moved-${task.id}-${Date.now()}`,
+            type: 'info',
+            message: `Task moved: ${task.title}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev.slice(0, 19),
+        ]);
+      }
     });
 
     newSocket.on('task.deleted', ({ taskId }) => {
-      setNotifications(prev => [{
-        id: `task-deleted-${taskId}`,
-        type: 'warning',
-        message: 'A task was deleted',
-        read: false,
-      }, ...prev.slice(0, 19)]);
+      setNotifications((prev) => [
+        {
+          id: `task-deleted-${taskId}-${Date.now()}`,
+          type: 'warning',
+          message: 'A task was deleted',
+          read: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev.slice(0, 19),
+      ]);
     });
 
     newSocket.on('comment.created', ({ comment }) => {
-      setNotifications(prev => [{
-        id: `comment-${comment.id}`,
-        type: 'info',
-        message: `New comment on a task`,
-        read: false,
-      }, ...prev.slice(0, 19)]);
+      setNotifications((prev) => [
+        {
+          id: `comment-${comment.id}-${Date.now()}`,
+          type: 'info',
+          message: `New comment on task`,
+          read: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev.slice(0, 19),
+      ]);
     });
 
     newSocket.on('comment.typing', ({ userId, taskId }) => {
       if (userId !== user.id) {
-        setTypingUsers(prev => ({
+        setTypingUsers((prev) => ({
           ...prev,
-          [taskId]: [...(prev[taskId] || []), userId],
+          [taskId]: Array.from(new Set([...(prev[taskId] || []), userId])),
         }));
         setTimeout(() => {
-          setTypingUsers(prev => ({
+          setTypingUsers((prev) => ({
             ...prev,
-            [taskId]: (prev[taskId] || []).filter(id => id !== userId),
+            [taskId]: (prev[taskId] || []).filter((id) => id !== userId),
           }));
         }, 3000);
       }
     });
 
     newSocket.on('notification.created', (notification) => {
-      setNotifications(prev => [notification, ...prev.slice(0, 19)]);
+      setNotifications((prev) => [notification, ...prev.slice(0, 19)]);
     });
 
     setSocket(newSocket);
 
     return () => {
-      newSocket.close();
+      newSocket.disconnect();
     };
   }, [user]);
 
-  const joinBoard = useCallback((boardId) => {
-    if (socket && currentBoardRef.current !== boardId) {
-      if (currentBoardRef.current) {
-        socket.emit('board:leave', currentBoardRef.current);
+  const joinBoard = useCallback(
+    (boardId) => {
+      if (socket && currentBoardRef.current !== boardId) {
+        if (currentBoardRef.current) {
+          socket.emit('board:leave', currentBoardRef.current);
+        }
+        socket.emit('board:join', boardId);
+        currentBoardRef.current = boardId;
       }
-      socket.emit('board:join', boardId);
-      currentBoardRef.current = boardId;
-    }
-  }, [socket]);
+    },
+    [socket]
+  );
 
   const leaveBoard = useCallback(() => {
     if (socket && currentBoardRef.current) {
@@ -124,14 +168,17 @@ export function SocketProvider({ children }) {
     }
   }, [socket]);
 
-  const sendTyping = useCallback((boardId, taskId) => {
-    if (socket) {
-      socket.emit('comment:typing', { boardId, taskId });
-    }
-  }, [socket]);
+  const sendTyping = useCallback(
+    (boardId, taskId) => {
+      if (socket) {
+        socket.emit('comment:typing', { boardId, taskId });
+      }
+    },
+    [socket]
+  );
 
   const markNotificationRead = useCallback((id) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   }, []);
 
   const value = {
@@ -139,7 +186,7 @@ export function SocketProvider({ children }) {
     onlineUsers,
     typingUsers,
     notifications,
-    unreadCount: notifications.filter(n => !n.read).length,
+    unreadCount: notifications.filter((n) => !n.read).length,
     joinBoard,
     leaveBoard,
     sendTyping,
